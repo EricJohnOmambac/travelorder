@@ -1,0 +1,248 @@
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Travel Order Management</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f0f2f5;
+    }
+    h1 {
+      text-align: center;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 20px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    form input, button {
+      margin: 5px 0;
+      padding: 10px;
+      font-size: 1em;
+    }
+    button {
+      cursor: pointer;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 5px;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    table, th, td {
+      border: 1px solid #ccc;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #007BFF;
+      color: white;
+    }
+    input.search-bar {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      font-size: 1em;
+      box-sizing: border-box;
+    }
+    .edit-btn, .delete-btn {
+      padding: 5px 10px;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 2px;
+    }
+    .edit-btn {
+      background-color: #ffc107;
+    }
+    .delete-btn {
+      background-color: #dc3545;
+    }
+    .edit-btn:hover {
+      background-color: #e0a800;
+    }
+    .delete-btn:hover {
+      background-color: #c82333;
+    }
+  </style>
+</head>
+<body>
+  <h1>Travel Order Management</h1>
+  <!-- Search -->
+  <input type="text" class="search-bar" id="searchInput" placeholder="Search..." oninput="filterTable()">
+  
+  <!-- Form -->
+  <form id="travelOrderForm">
+    <input type="text" id="name" placeholder="Name of Person" required>
+    <input type="text" id="purpose" placeholder="Purpose" required>
+    <input type="text" id="location" placeholder="Location" required>
+    <input type="text" id="driverName" placeholder="Driver Name" required>
+    <input type="date" id="date" required>
+    <button type="submit">Add Travel Order</button>
+  </form>
+
+  <!-- Table -->
+  <table id="travelOrderTable">
+    <thead>
+      <tr>
+        <th>Travel Order #</th>
+        <th>Name</th>
+        <th>Purpose</th>
+        <th>Location</th>
+        <th>Driver Name</th>
+        <th>Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Dynamic rows will appear here -->
+    </tbody>
+  </table>
+
+  <script>
+    const form = document.getElementById("travelOrderForm");
+    const tableBody = document.querySelector("#travelOrderTable tbody");
+    const searchInput = document.getElementById("searchInput");
+    const nameInput = document.getElementById("name");
+    const purposeInput = document.getElementById("purpose");
+    const locationInput = document.getElementById("location");
+    const driverNameInput = document.getElementById("driverName");
+    const dateInput = document.getElementById("date");
+
+    let travelOrders = JSON.parse(localStorage.getItem("travelOrders")) || [];
+    let travelOrderNumber = travelOrders.length > 0 ? Math.max(...travelOrders.map(o => o.id)) + 1 : 1000;
+
+    // Set minimum date (today) for date input
+    dateInput.setAttribute("min", new Date().toISOString().split("T")[0]);
+
+    // Add or Edit Travel Order
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const name = nameInput.value;
+      const purpose = purposeInput.value;
+      const location = locationInput.value;
+      const driverName = driverNameInput.value;
+      const date = dateInput.value;
+
+      if (new Date(date) < new Date()) {
+        alert("Please select a valid future date.");
+        return;
+      }
+
+      const editingIndex = travelOrders.findIndex(order => order.isEditing);
+
+      if (editingIndex >= 0) {
+        // Edit existing
+        travelOrders[editingIndex] = {
+          id: travelOrders[editingIndex].id,
+          name,
+          purpose,
+          location,
+          driverName,
+          date
+        };
+      } else {
+        // Add new
+        travelOrders.push({
+          id: travelOrderNumber++,
+          name,
+          purpose,
+          location,
+          driverName,
+          date
+        });
+      }
+
+      saveAndRender();
+      form.reset();
+    });
+
+    // Save to localStorage and render table
+    function saveAndRender() {
+      travelOrders.forEach(order => delete order.isEditing); // Clear editing flags
+      localStorage.setItem("travelOrders", JSON.stringify(travelOrders));
+      renderTable();
+    }
+
+    // Render table
+    function renderTable() {
+      tableBody.innerHTML = "";
+      travelOrders.forEach(order => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${order.id}</td>
+          <td>${order.name}</td>
+          <td>${order.purpose}</td>
+          <td>${order.location}</td>
+          <td>${order.driverName}</td>
+          <td>${order.date}</td>
+          <td>
+            <button class="edit-btn" data-id="${order.id}">Edit</button>
+            <button class="delete-btn" data-id="${order.id}">Delete</button>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    // Event delegation for edit and delete
+    tableBody.addEventListener("click", function (e) {
+      const id = Number(e.target.dataset.id);
+      if (e.target.classList.contains("edit-btn")) {
+        editOrder(id);
+      } else if (e.target.classList.contains("delete-btn")) {
+        deleteOrder(id);
+      }
+    });
+
+    function editOrder(id) {
+      const order = travelOrders.find(o => o.id === id);
+      nameInput.value = order.name;
+      purposeInput.value = order.purpose;
+      locationInput.value = order.location;
+      driverNameInput.value = order.driverName;
+      dateInput.value = order.date;
+
+      order.isEditing = true;
+    }
+
+    function deleteOrder(id) {
+      if (confirm("Are you sure you want to delete this travel order?")) {
+        travelOrders = travelOrders.filter(o => o.id !== id);
+        saveAndRender();
+      }
+    }
+
+    // Filter table
+    function filterTable() {
+      const filter = searchInput.value.toLowerCase();
+      document.querySelectorAll("#travelOrderTable tbody tr").forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(filter) ? "" : "none";
+      });
+    }
+
+    // Initial render
+    renderTable();
+  </script>
+</body>
+</html>
